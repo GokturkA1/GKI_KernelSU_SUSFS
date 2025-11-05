@@ -89,6 +89,11 @@ jobs:
           git clone https://github.com/WildKernels/kernel_patches.git
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
 
+      - name: Clone Nethunter Builder Repo
+        run: |
+          git clone --depth=1 https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git nethunter-builder
+          echo "Nethunter builder repo klonlandı."
+
       - name: Initialize and Sync Kernel Source
         run: |
           mkdir -p "$CONFIG"
@@ -105,6 +110,16 @@ jobs:
           fi
           
           $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
+
+      - name: Apply Nethunter Kernel Patches
+        run: |
+          echo "Nethunter yamaları uygulanıyor..."
+          cd "$CONFIG/common"
+          # Kernel 6.6 için Nethunter yamalarını uygula
+          # "|| true" komutu, bazı yamalar zaten uygulanmışsa veya uyumsuzsa bile iş akışının durmamasını sağlar.
+          git apply $GITHUB_WORKSPACE/nethunter-builder/patches/kernel-6.6/*.patch || true
+          echo "Nethunter yamaları uygulandı."
+          cd $GITHUB_WORKSPACE
           
       - name: Check Directory Space Usage
         run: |
@@ -258,7 +273,7 @@ jobs:
         run: |
           cd "$CONFIG/common"
           cp ../../kernel_patches/wild/hooks/scope_min_manual_hooks_v1.4.patch ./
-          patch -p1 -F 3 < scope_min_manual_hooks_v1.4.patch
+          patch -p1 -F 3 < scope_min_manual_hooks_v1.4.patchz
 
       - name: Scan and collect patch rejects
         if: ${{ always() }}
@@ -480,6 +495,18 @@ jobs:
             perl -i -pe 's/^(\s*)return 1$/$1print("Who Cares? Bypassing Now!")\n$1return 0/g if /if missing_symbols:/../return 1/' build/kernel/abi/check_buildtime_symbol_protection.py
           fi
 
+      - name: Configure Nethunter
+        run: |
+          cd "$CONFIG"
+          echo "Nethunter config ayarları ekleniyor..."
+          echo "# Nethunter Requirements" >> "${{ env.DEFCONFIG }}"
+          # nethunter.config dosyasındaki tüm ayarları defconfig dosyamıza ekliyoruz.
+          cat $GITHUB_WORKSPACE/nethunter-builder/config/nethunter.config >> "${{ env.DEFCONFIG }}"
+          # Pixel 6 (Tensor) için özel HID desteği gerekebilir, bu ayar onu açar
+          echo "CONFIG_USB_CONFIGFS_F_HID=y" >> "${{ env.DEFCONFIG }}"
+          echo "Nethunter config ayarları eklendi."
+          cd $GITHUB_WORKSPACE
+
       - name: Configure Build Optimization
         run: |
           cd "$CONFIG"
@@ -550,6 +577,29 @@ jobs:
         run: |
           mkdir -p AnyKernel3/modules/data/adb/lkm
           cp "./$CONFIG/bazel-bin/common/kernel_aarch64/snd-aloop.ko" AnyKernel3/modules/data/adb/lkm/
+
+      - name: Copy Nethunter Kernel Modules
+        run: |
+          echo "Nethunter kernel modülleri kopyalanıyor..."
+          # WildKernel, modülleri bu LKM dizinine koyuyor. Biz de aynısını yapacağız.
+          LKM_DIR=$GITHUB_WORKSPACE/AnyKernel3/modules/data/adb/lkm
+          mkdir -p $LKM_DIR
+          
+          # Derleme çıktısının olduğu dizini bul
+          BUILD_OUT_DIR=""
+          if [ -d "./$CONFIG/bazel-bin/common/kernel_aarch64/" ]; then
+            BUILD_OUT_DIR="./$CONFIG/bazel-bin/common/kernel_aarch64/"
+          elif [ -d "./$CONFIG/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist/" ]; then
+            BUILD_OUT_DIR="./$CONFIG/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist/"
+          fi
+
+          if [ -n "$BUILD_OUT_DIR" ]; then
+            # snd-aloop.ko hariç tüm .ko dosyalarını bul ve kopyala (o zaten kopyalandı)
+            find $BUILD_OUT_DIR -name "*.ko" -not -name "snd-aloop.ko" -exec cp {} $LKM_DIR \;
+            echo "Bulunan Nethunter modülleri $LKM_DIR dizinine kopyalandı."
+          else
+            echo "UYARI: Nethunter modülleri için derleme çıktı dizini bulunamadı."
+          fi
 
       - name: Search for Kernel Modules
         run: |
