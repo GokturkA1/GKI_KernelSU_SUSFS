@@ -495,16 +495,14 @@ jobs:
             perl -i -pe 's/^(\s*)return 1$/$1print("Who Cares? Bypassing Now!")\n$1return 0/g if /if missing_symbols:/../return 1/' build/kernel/abi/check_buildtime_symbol_protection.py
           fi
 
-      - name: Configure Nethunter
+      - name: Configure Nethunter Extras (HID Support)
         run: |
           cd "$CONFIG"
-          echo "Nethunter config ayarları ekleniyor..."
-          echo "# Nethunter Requirements" >> "${{ env.DEFCONFIG }}"
-          # nethunter.config dosyasındaki tüm ayarları defconfig dosyamıza ekliyoruz.
-          cat $GITHUB_WORKSPACE/nethunter-builder/config/nethunter.config >> "${{ env.DEFCONFIG }}"
-          # Pixel 6 (Tensor) için özel HID desteği gerekebilir, bu ayar onu açar
+          echo "Nethunter HID/USB extra config ayarları ekleniyor..."
+          echo "# Nethunter HID Extras" >> "${{ env.DEFCONFIG }}"
           echo "CONFIG_USB_CONFIGFS_F_HID=y" >> "${{ env.DEFCONFIG }}"
-          echo "Nethunter config ayarları eklendi."
+          echo "CONFIG_USB_GADGET_FUNCTIONS=y" >> "${{ env.DEFCONFIG }}"
+          echo "Nethunter extra ayarları eklendi."
           cd $GITHUB_WORKSPACE
 
       - name: Configure Build Optimization
@@ -859,3 +857,4 @@ jobs:
           else
             echo "  No rejected patches found." >> build_summary.md
           fi
+
