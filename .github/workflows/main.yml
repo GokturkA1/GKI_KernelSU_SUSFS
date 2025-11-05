@@ -39,6 +39,7 @@ on:
           - Android14-5.15
           - Android14-6.1
           - Android15-6.6
+          - Android16-6.6
         default: All
 
 jobs:
@@ -83,6 +84,10 @@ jobs:
     uses: ./.github/workflows/kernel-a15-6-6.yml
     secrets: inherit
 
+  build-a16-6-6:
+    if: (inputs.build_selection == 'All' || inputs.build_selection == 'Android16-6.6')
+    uses: ./.github/workflows/kernel-a16-6-6.yml
+    secrets: inherit
 
   release:
     runs-on: ubuntu-latest
