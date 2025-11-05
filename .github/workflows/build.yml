@@ -273,7 +273,7 @@ jobs:
         run: |
           cd "$CONFIG/common"
           cp ../../kernel_patches/wild/hooks/scope_min_manual_hooks_v1.4.patch ./
-          patch -p1 -F 3 < scope_min_manual_hooks_v1.4.patchz
+          patch -p1 -F 3 < scope_min_manual_hooks_v1.4.patch
 
       - name: Scan and collect patch rejects
         if: ${{ always() }}
@@ -859,4 +859,3 @@ jobs:
           else
             echo "  No rejected patches found." >> build_summary.md
           fi
-
